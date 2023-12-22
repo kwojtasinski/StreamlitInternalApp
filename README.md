@@ -7,7 +7,7 @@ This is a Python package to turn functions into internal apps powered by Streaml
 ## Installation
 
 ```bash
-pip install streamlitinternalapp
+pip install streamlit-internal-app
 ```
 
 ## Usage
