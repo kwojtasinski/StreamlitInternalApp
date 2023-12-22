@@ -1,8 +1,11 @@
 #!/bin/bash
 set -xe
-VERSION=${1:-`poetry version -s`}
-poetry version $VERSION
-poetry build
+if command -v poetry &> /dev/null
+then
+    VERSION=${1:-`poetry version -s`}
+else
+    VERSION=${1:-ci}
+fi
 
 if command -v docker &> /dev/null
 then
