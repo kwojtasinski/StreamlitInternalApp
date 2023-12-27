@@ -2,9 +2,12 @@ import datetime
 import inspect
 import json
 import logging
+import pathlib
+from functools import wraps
 from typing import Any, Callable, Literal, Optional, get_args, get_origin
 
 import streamlit as st
+from pandas import DataFrame
 
 
 class StreamlitHandler(logging.Handler):
@@ -66,29 +69,39 @@ class ComponentForm:
             result (Any): The result of running the component function.
             return_type (Any): The return type of the component function.
         """
-        if return_type == str:
-            st.write(result)
 
-        if return_type == int:
-            st.write(result)
+        if return_type == pathlib.Path:
+            st.download_button(
+                label="Download",
+                data=result.read_text(),
+                file_name=result.as_posix(),
+            )
+            return
 
-        if return_type == float:
-            st.write(result)
+        if return_type == DataFrame:
+            st.dataframe(data=result)
+            return
 
-        if return_type == bool:
-            st.write(result)
-
-        if return_type == datetime.datetime:
-            st.write(result)
-
-        if return_type == datetime.date:
-            st.write(result)
+        if return_type == pathlib.Path:
+            st.download_button(
+                label="Download",
+                data=result.read_text(),
+                file_name=result.as_posix(),
+            )
+            return
 
         if get_origin(return_type) == dict:
             st.json(result)
+            return
 
         if get_origin(return_type) == list:
             st.json(result)
+            return
+
+        try:
+            st.write(result)
+        except Exception as e:
+            st.exception(e)
 
     @staticmethod
     def _render_element(name: str, annotation: Any) -> Any:
@@ -106,19 +119,19 @@ class ComponentForm:
             ValueError: If the annotation type is not supported.
         """
         if annotation == str:
-            return st.text_input(name)
+            return st.text_input(name, placeholder=name)
 
         if annotation == int:
-            return st.number_input(name, step=1)
+            return st.number_input(name, step=1, placeholder=name)
 
         if annotation == float:
-            return st.number_input(name, step=0.01)
+            return st.number_input(name, step=0.01, placeholder=name)
 
         if annotation == bool:
             return st.checkbox(name)
 
         if get_origin(annotation) == Literal:
-            return st.selectbox(name, get_args(annotation))
+            return st.selectbox(name, get_args(annotation), placeholder=name)
 
         if annotation == datetime.date:
             return st.date_input(name)
@@ -138,6 +151,7 @@ class ComponentForm:
         if get_origin(annotation) == dict:
             value = st.text_area(
                 name,
+                placeholder=name,
                 help=f"Define JSON definition of {name} field (type dict), that will be parsed.",
             )
             return {} if value == "" else json.loads(value)
@@ -146,6 +160,7 @@ class ComponentForm:
             if get_args(annotation)[0] == str:
                 value = st.text_area(
                     name,
+                    placeholder=name,
                     help=f"Define JSON definition of {name} field (type list), that will be parsed.",
                 )
                 return [] if value == "" else json.loads(value)
@@ -154,7 +169,7 @@ class ComponentForm:
                 return st.multiselect(
                     name,
                     get_args(get_args(annotation)[0]),
-                    help=f"Define JSON definition of {name} field (type list), that will be parsed.",
+                    placeholder=name,
                 )
         raise ValueError(f"Unsupported type {annotation}")
 
@@ -221,18 +236,29 @@ class StreamlitInternalApp:
         if use_logging is True:
             self.setup_logging()
 
-    def component(self, function: Callable) -> None:
+    def component(self, function: Callable) -> Any:
         """
-        Register a component in the app.
+        Register a component in the app. This is a decorator that wraps the component function.
 
         Args:
             function (Callable): The component to be registered.
 
         Returns:
-            None
+            Any - The result of the component function.
+
+        Example:
+            >>> def my_component():
+            ...     pass
+            >>> app.component(my_component)
         """
-        function = ComponentForm(function)
-        self.components[function.name] = function
+        component = ComponentForm(function)
+        self.components[component.name] = component
+
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        return wrapper
 
     def render(self):
         """
@@ -249,6 +275,7 @@ class StreamlitInternalApp:
             st.sidebar.write(f"{self.description}")
 
         component = st.sidebar.radio("Choose app", list(self.components.keys()))
+
         if self.render_code is True:
             st.write(
                 f"## Source code of {self.components[component].component.__name__}",
@@ -261,6 +288,15 @@ class StreamlitInternalApp:
         self.components[component].render()
 
     def __repr__(self) -> str:
+        """
+        Returns a string representation of the Component object.
+
+        The string representation includes the class name, title, description (if available),
+        and a list of component names.
+
+        Returns:
+            str: The string representation of the Component object.
+        """
         components = [component.name for component in self.components.values()]
         return (
             f'{self.__class__.__name__}(title="{self.title}", components={components})'
@@ -271,8 +307,14 @@ class StreamlitInternalApp:
     def setup_logging(self) -> None:
         """
         Setup logging to streamlit.
+
+        This method adds a StreamlitHandler to the root logger if it doesn't already exist.
+        The StreamlitHandler allows log messages to be displayed in the Streamlit app.
         """
         logger = logging.getLogger()
 
         if "StreamlitHandler" not in str(logger.handlers):
             logger.addHandler(StreamlitHandler())
+
+
+__all__ = ["StreamlitInternalApp", "ComponentForm"]
