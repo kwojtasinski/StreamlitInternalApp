@@ -1,7 +1,15 @@
 import datetime
 import json
+import pathlib
 
+import pandas as pd
 from streamlit.testing.v1 import AppTest
+
+
+def test_app_sidebar_renders_as_expected(example_app: AppTest):
+    assert len(example_app.sidebar.radio) == 1
+    assert example_app.sidebar.radio[0].label == "Choose app"
+    assert len(example_app.sidebar.markdown) == 1
 
 
 def test_app_renders_add_as_expected(example_app: AppTest):
@@ -125,3 +133,35 @@ def test_app_renders_get_datetime_diff_as_expected(example_app: AppTest):
     result = json.loads(example_app.json[0].value)
     expected_result = {"days": 6, "seconds": 43200, "microseconds": 0}
     assert result == expected_result
+
+
+def test_app_renders_get_incidents_from_year_as_expected(
+    example_app: AppTest,
+    incidents_df: pd.DataFrame,
+):
+    expected_df = incidents_df[incidents_df["year"] == 2020]
+    example_app.sidebar.radio[0].set_value("Get incidents from year").run()
+    example_app.selectbox[0].select("2020").run()
+    example_app.button[0].click().run()
+    assert example_app.dataframe[0].value.equals(expected_df)
+
+
+def test_app_renders_generate_random_numbers_file(
+    example_app: AppTest,
+    tmpdir: pathlib.Path,
+):
+    file_path = tmpdir / "random_numbers.txt"
+    example_app.sidebar.radio[0].set_value("Generate random numbers file").run()
+    example_app.number_input[0].set_value(100).run()
+    example_app.text_input[0].set_value(str(file_path)).run()
+    example_app.button[0].click().run()
+    assert file_path.exists()
+    assert len(file_path.read_text(encoding="utf-8").splitlines()) == 100
+
+
+def test_app_renders_get_current_time_as_expected(example_app: AppTest):
+    example_app.sidebar.radio[0].set_value("Get current datetime").run()
+    example_app.button[0].click().run()
+    text = [x.value for x in example_app.markdown]
+    date_time = datetime.datetime.fromisoformat(text[-2].strip("`"))
+    assert date_time.date() == datetime.datetime.now().date()

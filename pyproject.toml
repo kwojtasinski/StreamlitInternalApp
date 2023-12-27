@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "streamlit_internal_app"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Kacper Wojtasinski <k0wojtasinski@gmail.com>"]
 readme = "README.md"

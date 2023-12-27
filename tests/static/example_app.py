@@ -1,7 +1,11 @@
 import datetime
 import ipaddress
 import logging
+import pathlib
+import random
 from typing import Literal, Union
+
+import pandas as pd
 
 from streamlit_internal_app.component import StreamlitInternalApp
 
@@ -161,6 +165,53 @@ def get_datetime_diff(
     """
     time_diff = end_df - start_dt
     return {k: getattr(time_diff, k) for k in ("days", "seconds", "microseconds")}
+
+
+@app.component
+def get_incidents_from_year(
+    year: Literal["2020", "2021", "2022", "2023"],
+) -> pd.DataFrame:
+    """
+    Retrieve incidents from a specific year.
+
+    Parameters:
+        year (str): The year of the incidents to retrieve. Must be one of "2020", "2021", "2022", or "2023".
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the incidents from the specified year.
+    """
+    path_to_csv = pathlib.Path(__file__).parent / "incidents.csv"
+    df = pd.read_csv(path_to_csv)
+    return df[df["year"] == int(year)]
+
+
+@app.component
+def generate_random_numbers_file(size: int, path_to_save: str) -> pathlib.Path:
+    """
+    Generate a file with random numbers.
+
+    Args:
+        size (int): The number of random numbers to generate.
+        path_to_save (str): The path to save the generated file.
+
+    Returns:
+        pathlib.Path: The path to the generated file.
+    """
+    values = [random.random() for _ in range(size)]
+    path_to_file = pathlib.Path(path_to_save)
+    path_to_file.write_text("\n".join(str(v) for v in values))
+    return path_to_file
+
+
+@app.component
+def get_current_datetime() -> datetime.datetime:
+    """
+    Get the current datetime.
+
+    Returns:
+        datetime.datetime: The current datetime.
+    """
+    return datetime.datetime.today()
 
 
 app.render()
