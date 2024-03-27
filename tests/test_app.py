@@ -165,3 +165,27 @@ def test_app_renders_get_current_time_as_expected(example_app: AppTest):
     text = [x.value for x in example_app.markdown]
     date_time = datetime.datetime.fromisoformat(text[-2].strip("`"))
     assert date_time.date() == datetime.datetime.now().date()
+
+
+def test_app_renders_get_time_until_event_as_expected(example_app: AppTest):
+    yesterday = datetime.datetime.today() - datetime.timedelta(days=1)
+    example_app.sidebar.radio[0].set_value("Get time until event").run()
+    assert len(example_app.date_input) == 1
+    assert len(example_app.text_input) == 1
+    example_app.text_input[0].set_value("TestEvent").run()
+    example_app.date_input[0].set_value(
+        datetime.datetime(
+            year=yesterday.year,
+            month=yesterday.month,
+            day=yesterday.day,
+        ),
+    ).run()
+    example_app.button[0].click().run()
+    text = [x.value for x in example_app.markdown]
+    assert text == [
+        "## Source code of get_time_until_event",
+        "# Get time until event",
+        "## Results",
+        "Event TestEvent has already occurred.",
+        "This is my app",
+    ]

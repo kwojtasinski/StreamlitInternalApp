@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import inspect
 import json
@@ -8,6 +9,11 @@ from typing import Any, Callable, Literal, Optional, get_args, get_origin
 
 import streamlit as st
 from pandas import DataFrame
+
+from streamlit_internal_app.exceptions import (
+    ComponentFormWithDataclassHasMoreThanOneFieldError,
+    ComponentFormWithUnsupportedAnnotationError,
+)
 
 
 class StreamlitHandler(logging.Handler):
@@ -47,18 +53,22 @@ class ComponentForm:
         """
         self.component = function
         self.name = function.__name__.replace("__", "_").replace("_", " ").capitalize()
+        self.dataclass_class = None
 
-    def run(self, params: dict[str, Any]):
+    def run(self, params: dict[str, Any] | Any):
         """
         Runs the component function with the provided parameters.
 
         Args:
-            params (dict[str, Any]): The parameters to be passed to the component function.
+            params (dict[str, Any]) | Any: The parameter(s) to be passed to the component function.
 
         Returns:
             Any: The result of running the component function.
         """
-        return self.component(**params)
+        if isinstance(params, dict):
+            return self.component(**params)
+
+        return self.component(params)  # handle dataclasses
 
     @staticmethod
     def _render_result(result: Any, return_type: Any) -> None:
@@ -171,7 +181,32 @@ class ComponentForm:
                     get_args(get_args(annotation)[0]),
                     placeholder=name,
                 )
-        raise ValueError(f"Unsupported type {annotation}")
+        raise ComponentFormWithUnsupportedAnnotationError(annotation)
+
+    def _prepare_annotations(self) -> dict[str, Any]:
+        """
+        Prepares the annotations for the component.
+        It checks if the component has a schema (dataclass) and if it has other types.
+        If the component has a schema, it returns the schema annotations.
+        """
+        annotations = {}
+        has_dataclass = False
+
+        for annotation_name, annotation in self.component.__annotations__.items():
+            if dataclasses.is_dataclass(annotation):
+                has_dataclass = True
+                self.dataclass_class = annotation
+                for field in dataclasses.fields(annotation):
+                    annotations[field.name] = field.type
+            else:
+                annotations[annotation_name] = annotation
+
+        original_annotations = self.component.__annotations__.copy()
+        original_annotations.pop("return", None)
+
+        if has_dataclass is True and len(original_annotations) > 1:
+            raise ComponentFormWithDataclassHasMoreThanOneFieldError()
+        return annotations
 
     def render(self):
         """
@@ -179,7 +214,7 @@ class ComponentForm:
 
         Displays the component name, docstring (if available), and input elements for the component's parameters.
         """
-        annotations = self.component.__annotations__
+        annotations = self._prepare_annotations()
         return_type = annotations.pop("return", None)
 
         st.write(f"# {self.name}")
@@ -198,7 +233,10 @@ class ComponentForm:
             with st.spinner("Running..."):
                 st.write("## Results")
                 try:
-                    result = self.run(results)
+                    if self.dataclass_class is not None:
+                        result = self.run(self.dataclass_class(**results))
+                    else:
+                        result = self.run(results)
                     self._render_result(result, return_type)
                 except Exception as e:
                     st.exception(e)

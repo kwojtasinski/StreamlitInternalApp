@@ -54,6 +54,7 @@ Here is a table of supported types:
 | `list` | `st.text_area(argument_name)` that will be parsed into JSON object (for `list[str]`) and `st.multiselect(argument_name, literal_values)` for `list[Literal[str1,str2,...]]`. Only these two are supported. | `st.json(result)` | <https://docs.streamlit.io/library/api-reference/widgets/st.text_area> <https://docs.streamlit.io/library/api-reference/widgets/st.multiselect> | <https://docs.streamlit.io/library/api-reference/data/st.json> |
 | `dict` | `st.text_area(argument_name)` that will be parsed into JSON object. Only `dict` annotation is supported. | `st.json(result)` | <https://docs.streamlit.io/library/api-reference/widgets/st.text_area> | <https://docs.streamlit.io/library/api-reference/data/st.json> |
 | `pandas.DataFrame` | ❌ | `st.dataframe(result)` | ❌ | <https://docs.streamlit.io/library/api-reference/data/st.dataframe> |
+| `dataclasses.dataclass` | All the attributes of dataclass will be treated as separate annotations (exploded). If provided, it needs to be the only annotation - callable can have only one parameter. | `st.write(result)` | ❌ | <https://docs.streamlit.io/library/api-reference/write-magic/st.write> |
 
 If your annotation is not in the list, the output will be rendered with `st.write` by default.
 
