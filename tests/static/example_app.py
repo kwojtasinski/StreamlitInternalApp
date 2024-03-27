@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import pathlib
 import random
+from dataclasses import dataclass
 from typing import Literal, Union
 
 import pandas as pd
@@ -12,6 +13,12 @@ from streamlit_internal_app.component import StreamlitInternalApp
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Event:
+    name: str
+    date: datetime.date
 
 
 app = StreamlitInternalApp(
@@ -212,6 +219,24 @@ def get_current_datetime() -> datetime.datetime:
         datetime.datetime: The current datetime.
     """
     return datetime.datetime.today()
+
+
+@app.component
+def get_time_until_event(event: Event) -> str:
+    """
+    Get the time until the specified event.
+
+    Args:
+        event (Event): An instance of the Event class representing the event.
+
+    Returns:
+        str: A string indicating the time until the event. If the event has already occurred, it returns "Event [event name] has already occurred.". Otherwise, it returns "Time until event [event name]: [number of days] days."
+
+    """
+    results = event.date - datetime.date.today()
+    if results.days < 0:
+        return f"Event {event.name} has already occurred."
+    return f"Time until event {event.name}: {results.days} days."
 
 
 app.render()
