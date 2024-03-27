@@ -189,4 +189,3 @@ def test_app_renders_get_time_until_event_as_expected(example_app: AppTest):
         "Event TestEvent has already occurred.",
         "This is my app",
     ]
-
